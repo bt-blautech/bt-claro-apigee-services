@@ -1,0 +1,38 @@
+# Artefactos de build
+dist/
+*.zip
+evidence/*
+!evidence/.gitkeep
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+.terraform.lock.hcl.bak
+*.auto.tfvars
+secrets.tfvars
+
+# Credenciales: NUNCA versionar
+*.json.key
+sa-key*.json
+*-sa.json
+credentials*.json
+.env
+.env.*
+*.pem.key
+*.key
+*.p12
+*.jks
+
+# Python / Node
+__pycache__/
+.pytest_cache/
+.venv/
+node_modules/
+
+# SO / IDE
+.DS_Store
+.idea/
+.vscode/
