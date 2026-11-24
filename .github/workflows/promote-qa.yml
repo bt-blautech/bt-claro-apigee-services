@@ -1,0 +1,130 @@
+name: promote-qa
+
+# Paso 5 / C5: promocion controlada del MISMO artefacto de DEV a QA.
+# Gate (repo privado, plan gratuito sin required reviewers):
+#   1. Solo usuarios en la variable QA_APPROVERS pueden ejecutarlo
+#   2. Confirmacion explicita: confirmacion=PROMOVER-QA
+#   3. El run de DEV indicado debe ser de cd-pipeline, sobre main, y haber terminado en success
+#   4. Mismo artefacto: se descarga el bundle de ESE run, se verifica su sha256 y que la revision
+#      de Apigee corresponda al mismo commit y este desplegada en DEV. No se reempaqueta ni reimporta.
+on:
+  workflow_dispatch:
+    inputs:
+      dev_run_id:
+        description: "ID del run de cd-pipeline que desplego DEV"
+        required: true
+      confirmacion:
+        description: "Escriba PROMOVER-QA para confirmar"
+        required: true
+
+permissions:
+  contents: write     # comentario de trazabilidad (C9)
+  actions: read       # leer el run de DEV y descargar su artefacto
+  deployments: write
+
+env:
+  PROXY_NAME: poc-customer-v1
+  APIGEE_ORG: ${{ vars.APIGEE_ORG }}
+  PROJECT_ID: ${{ vars.APIGEE_ORG }}
+  APIGEE_NAME: ${{ vars.APIGEE_NAME }}
+
+jobs:
+  gate:
+    name: "C5 Gate de aprobacion"
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.run.outputs.sha }}
+    steps:
+      - name: "1. Aprobador autorizado"
+        env:
+          APPROVERS: ${{ vars.QA_APPROVERS }}
+        run: |
+          echo "Solicitado por: ${GITHUB_ACTOR} · aprobadores: ${APPROVERS}"
+          [[ ",${APPROVERS// /}," == *",${GITHUB_ACTOR},"* ]] || { echo "::error::${GITHUB_ACTOR} no esta en QA_APPROVERS"; exit 1; }
+      - name: "2. Confirmacion explicita"
+        run: |
+          [[ "${{ inputs.confirmacion }}" == "PROMOVER-QA" ]] || { echo "::error::confirmacion invalida"; exit 1; }
+      - name: "3. El run de DEV es valido y termino en success"
+        id: run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          R=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${{ inputs.dev_run_id }}")
+          echo "$R" | jq '{workflow: .name, branch: .head_branch, sha: .head_sha, conclusion, url: .html_url}'
+          [[ "$(echo "$R" | jq -r .name)" == "cd-pipeline" ]] || { echo "::error::el run no es de cd-pipeline"; exit 1; }
+          [[ "$(echo "$R" | jq -r .head_branch)" == "main" || "$(echo "$R" | jq -r .head_branch)" == v* ]] || { echo "::error::solo se promueve desde main o tags"; exit 1; }
+          [[ "$(echo "$R" | jq -r .conclusion)" == "success" ]] || { echo "::error::el run de DEV no termino en success"; exit 1; }
+          echo "sha=$(echo "$R" | jq -r .head_sha)" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Gate QA aprobado"
+            echo "| Aprobador | Run DEV | Commit |"; echo "|---|---|---|"
+            echo "| ${GITHUB_ACTOR} | [${{ inputs.dev_run_id }}]($(echo "$R" | jq -r .html_url)) | \`$(echo "$R" | jq -r .head_sha)\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  promote-qa:
+    name: "C5/C6 Promocion a QA (mismo artefacto)"
+    needs: gate
+    runs-on: ubuntu-latest
+    environment:
+      name: qa
+      url: https://${{ vars.APIGEE_HOST }}/v1/poc-customer/customers
+    env:
+      APIGEE_ENV: qa
+      APIGEE_HOST: ${{ vars.APIGEE_HOST }}
+      BACKEND_HOST: ${{ vars.BACKEND_HOST }}
+      SHA: ${{ needs.gate.outputs.sha }}
+      COMMIT_SHA: ${{ needs.gate.outputs.sha }}   # commit promovido (GITHUB_SHA es el del dispatch)
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.gate.outputs.sha }}
+      - name: "4a. Descargar el MISMO bundle del run de DEV"
+        uses: actions/download-artifact@v8
+        with:
+          name: bundle-${{ needs.gate.outputs.sha }}
+          path: dist/
+          run-id: ${{ inputs.dev_run_id }}
+          github-token: ${{ github.token }}
+      - name: "4b. Verificar sha256 y commit del artefacto"
+        run: |
+          jq . dist/build-info.json
+          [[ "$(jq -r .git_sha dist/build-info.json)" == "${SHA}" ]] || { echo "::error::el artefacto no es del commit ${SHA}"; exit 1; }
+          echo "$(jq -r .bundle_sha256 dist/build-info.json)  dist/${PROXY_NAME}.zip" | sha256sum -c -
+          echo "BUNDLE_SHA256=$(jq -r .bundle_sha256 dist/build-info.json)" >> "$GITHUB_ENV"
+      - uses: ./.github/actions/setup-apigee
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - name: "4c. Revision de Apigee = mismo commit y desplegada en DEV"
+        id: rev
+        run: |
+          source scripts/lib/apigee.sh
+          REV=$(find_revision_by_sha "$PROXY_NAME" "$SHA")
+          [[ -n "$REV" ]] || { echo "::error::no hay revision con sha=${SHA}"; exit 1; }
+          DEV_REV=$(deployed_revision "$PROXY_NAME" dev)
+          echo "revision del commit: r${REV} · desplegada en DEV: r${DEV_REV}"
+          [[ "$REV" == "$DEV_REV" ]] || { echo "::error::r${REV} no es la revision activa en DEV (r${DEV_REV})"; exit 1; }
+          echo "revision=${REV}" >> "$GITHUB_OUTPUT"
+      - name: "C6/C8 Configuracion QA (vault -> KVM cifrado)"
+        run: scripts/apply_config.sh qa
+      - name: "C5 Desplegar la MISMA revision en QA (sin reimportar)"
+        id: deploy
+        run: scripts/deploy.sh qa "${{ steps.rev.outputs.revision }}"
+      - name: "C7 App QA (credenciales distintas a DEV)"
+        run: scripts/apply_products.sh qa
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install -r tests/requirements.txt
+      - name: "C6 Validacion QA (target/KVM/cuota de QA)"
+        env:
+          EXPECTED_SHA: ${{ needs.gate.outputs.sha }}
+        run: pytest tests/ -v --junitxml=evidence/pytest-qa.xml
+      - name: "C9 Trazabilidad"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/trace.sh qa "${{ steps.rev.outputs.revision }}" promocion
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: evidence-qa-${{ github.run_id }}
+          path: evidence/

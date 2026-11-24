@@ -1,0 +1,66 @@
+name: rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Ambiente
+        type: choice
+        options: [dev, qa]
+        required: true
+      revision:
+        description: "Revision objetivo (vacio = N-1)"
+        required: false
+
+permissions:
+  contents: write
+
+env:
+  PROXY_NAME: poc-customer-v1
+  APIGEE_ORG: ${{ vars.APIGEE_ORG }}
+  PROJECT_ID: ${{ vars.APIGEE_ORG }}
+  APIGEE_NAME: ${{ vars.APIGEE_NAME }}
+
+jobs:
+  rollback:
+    name: "Cap.10 Rollback ${{ inputs.environment }}"
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env:
+      APIGEE_ENV: ${{ inputs.environment }}
+      APIGEE_HOST: ${{ vars.APIGEE_HOST }}
+      BACKEND_HOST: ${{ vars.BACKEND_HOST }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-apigee
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - name: Obtener API key de la app del ambiente
+        run: scripts/apply_products.sh "${APIGEE_ENV}"
+      - name: Rollback
+        id: rb
+        run: scripts/rollback.sh "${APIGEE_ENV}" "${{ inputs.revision }}"
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install -r tests/requirements.txt
+      - name: Validacion posterior (revision y commit anteriores)
+        env:
+          EXPECTED_REVISION: ${{ steps.rb.outputs.to_revision }}
+          EXPECTED_SHA: ${{ steps.rb.outputs.expected_sha }}
+        # Valida lo que exige C10: responde (200 + payload) y es la revision/commit anterior
+        run: pytest tests/ -v -k "listado_200 or payload_paginado or revision_esperada or commit_esperado" --junitxml=evidence/pytest-rollback.xml
+      - name: Resumen
+        if: always()
+        run: |
+          {
+            echo "### Rollback ${PROXY_NAME} en ${APIGEE_ENV}"
+            echo "| Desde | Hacia | Commit esperado | Run |"
+            echo "|---|---|---|---|"
+            echo "| r${{ steps.rb.outputs.from_revision }} | **r${{ steps.rb.outputs.to_revision }}** | \`${{ steps.rb.outputs.expected_sha }}\` | ${GITHUB_RUN_ID} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: evidence-rollback-${{ github.run_id }}
+          path: evidence/

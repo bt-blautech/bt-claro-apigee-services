@@ -1,0 +1,23 @@
+name: setup-apigee
+description: Autentica con la service account (GitHub Secret), obtiene token enmascarado e instala apigeecli
+inputs:
+  credentials_json:
+    description: Llave JSON de la service account (desde secrets.GCP_SA_KEY)
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Autenticacion GCP (service account desde GitHub Secrets)
+      uses: google-github-actions/auth@v3
+      with:
+        credentials_json: ${{ inputs.credentials_json }}
+    - uses: google-github-actions/setup-gcloud@v3
+    - name: Token de acceso (enmascarado)
+      shell: bash
+      run: |
+        TOKEN=$(gcloud auth print-access-token)
+        echo "::add-mask::${TOKEN}"
+        echo "APIGEE_TOKEN=${TOKEN}" >> "$GITHUB_ENV"
+    - name: Instalar apigeecli
+      shell: bash
+      run: scripts/install-tools.sh

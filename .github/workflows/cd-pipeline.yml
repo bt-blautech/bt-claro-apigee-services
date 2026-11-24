@@ -1,0 +1,123 @@
+name: cd-pipeline
+
+# Paso 3: merge a main -> DEV (+ pruebas). La promocion a QA (Paso 5) es el workflow promote-qa.yml,
+# que se lanza manualmente con el ID de este run (gate: aprobadores autorizados + confirmacion).
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write      # comentario de trazabilidad en el commit (C9)
+  deployments: write
+
+env:
+  PROXY_NAME: poc-customer-v1
+  APIGEE_ORG: ${{ vars.APIGEE_ORG }}
+  PROJECT_ID: ${{ vars.APIGEE_ORG }}
+  APIGEE_NAME: ${{ vars.APIGEE_NAME }}
+
+jobs:
+  validate:
+    uses: ./.github/workflows/ci-validate.yml
+
+  build:
+    name: "Build unico del bundle (mismo SHA para DEV y QA)"
+    needs: validate
+    runs-on: ubuntu-latest
+    outputs:
+      bundle_sha256: ${{ steps.info.outputs.bundle_sha256 }}
+    steps:
+      - uses: actions/checkout@v7
+      - run: scripts/build.sh
+      - id: info
+        run: echo "bundle_sha256=$(jq -r .bundle_sha256 dist/build-info.json)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: bundle-${{ github.sha }}
+          path: dist/
+          retention-days: 90
+
+  deploy-dev:
+    name: "C3/C4 Deploy DEV + invocacion"
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: dev
+      url: https://${{ vars.APIGEE_HOST }}/v1/poc-customer/customers
+    outputs:
+      revision: ${{ steps.deploy.outputs.revision }}
+    env:
+      APIGEE_ENV: dev
+      APIGEE_HOST: ${{ vars.APIGEE_HOST }}
+      BACKEND_HOST: ${{ vars.BACKEND_HOST }}
+      BUNDLE_SHA256: ${{ needs.build.outputs.bundle_sha256 }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: bundle-${{ github.sha }}
+          path: dist/
+      - name: Verificar integridad del bundle
+        run: echo "${BUNDLE_SHA256}  dist/${PROXY_NAME}.zip" | sha256sum -c -
+      - uses: ./.github/actions/setup-apigee
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - name: "C6/C8 Configuracion DEV (vault -> KVM cifrado)"
+        run: scripts/apply_config.sh dev
+      - name: "C3 Despliegue DEV"
+        id: deploy
+        run: scripts/deploy.sh dev
+      - name: "C7 API product + app DEV (como codigo)"
+        run: scripts/apply_products.sh dev
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install -r tests/requirements.txt
+      - name: "C4 Invocacion DEV (200, payload, x-correlation-id, < 500 ms)"
+        run: pytest tests/ -v --junitxml=evidence/pytest-dev.xml
+      - name: "C9 Trazabilidad"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/trace.sh dev "${{ steps.deploy.outputs.revision }}"
+      - name: "C5 Instrucciones de promocion a QA"
+        run: |
+          {
+            echo "### Promocion a QA (gate)"
+            echo "DEV quedo en **r${{ steps.deploy.outputs.revision }}**. Para promover EXACTAMENTE este artefacto:"
+            echo '```'
+            echo "gh workflow run promote-qa.yml -f dev_run_id=${GITHUB_RUN_ID} -f confirmacion=PROMOVER-QA"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: evidence-dev
+          path: evidence/
+
+  evidence:
+    name: "C11 Evidencias consolidadas"
+    needs: [validate, build, deploy-dev]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: evidence-*
+          path: evidence/
+      - name: Reporte de evidencias
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULTS: ${{ toJSON(needs) }}
+        run: scripts/evidence.sh
+      - uses: actions/upload-artifact@v7
+        with:
+          name: evidence-report-${{ github.run_id }}
+          path: evidence/
+          retention-days: 90
