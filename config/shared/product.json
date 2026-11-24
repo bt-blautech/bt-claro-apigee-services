@@ -1,0 +1,9 @@
+{
+  "name": "poc-product",
+  "displayName": "PoC Customer API",
+  "description": "API de gestion de clientes (poc-customer-v1). Cuota efectiva por ambiente desde KVM quota_limit.",
+  "approvalType": "auto",
+  "environments": ["dev", "qa"],
+  "proxies": ["poc-customer-v1"],
+  "attributes": [{ "name": "access", "value": "private" }]
+}

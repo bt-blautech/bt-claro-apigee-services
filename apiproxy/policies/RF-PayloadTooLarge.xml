@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- Limite de 2 KB del payload (JSONThreatProtection no limita el tamano total) -->
+<RaiseFault continueOnError="false" enabled="true" name="RF-PayloadTooLarge">
+    <DisplayName>RF-PayloadTooLarge</DisplayName>
+    <FaultResponse>
+        <Set>
+            <Headers>
+                <Header name="x-correlation-id">{request.header.x-correlation-id}</Header>
+            </Headers>
+            <Payload contentType="application/json">{"error":{"code":"payload_too_large","message":"El payload supera 2 KB","correlationId":"{request.header.x-correlation-id}"}}</Payload>
+            <StatusCode>413</StatusCode>
+            <ReasonPhrase>Payload Too Large</ReasonPhrase>
+        </Set>
+    </FaultResponse>
+    <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+</RaiseFault>

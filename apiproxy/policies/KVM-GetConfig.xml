@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- KVM por ambiente (cifrado en Apigee X). Las variables private.* se enmascaran en Debug. -->
+<KeyValueMapOperations continueOnError="false" enabled="true" name="KVM-GetConfig" mapIdentifier="poc-customer-config">
+    <DisplayName>KVM-GetConfig</DisplayName>
+    <Scope>environment</Scope>
+    <ExpiryTimeInSecs>60</ExpiryTimeInSecs>
+    <Get assignTo="config.quota_limit">
+        <Key>
+            <Parameter>quota_limit</Parameter>
+        </Key>
+    </Get>
+    <Get assignTo="config.backend_url">
+        <Key>
+            <Parameter>backend_url</Parameter>
+        </Key>
+    </Get>
+    <Get assignTo="config.env_label">
+        <Key>
+            <Parameter>env_label</Parameter>
+        </Key>
+    </Get>
+    <Get assignTo="private.api_secret">
+        <Key>
+            <Parameter>api_secret</Parameter>
+        </Key>
+    </Get>
+</KeyValueMapOperations>

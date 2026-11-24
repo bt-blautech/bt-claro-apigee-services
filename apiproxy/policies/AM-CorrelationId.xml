@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- Policy obligatoria 4 (transform): x-correlation-id (uuid) si el cliente no lo envia -->
+<AssignMessage continueOnError="false" enabled="true" name="AM-CorrelationId">
+    <DisplayName>AM-CorrelationId</DisplayName>
+    <Set>
+        <Headers>
+            <Header name="x-correlation-id">{createUuid()}</Header>
+        </Headers>
+    </Set>
+    <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+</AssignMessage>

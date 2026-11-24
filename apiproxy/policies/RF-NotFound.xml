@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- Policy obligatoria 5 (fault): 404 con JSON consistente -->
+<RaiseFault continueOnError="false" enabled="true" name="RF-NotFound">
+    <DisplayName>RF-NotFound</DisplayName>
+    <FaultResponse>
+        <Set>
+            <Headers>
+                <Header name="x-correlation-id">{request.header.x-correlation-id}</Header>
+            </Headers>
+            <Payload contentType="application/json">{"error":{"code":"not_found","message":"Recurso no encontrado: {request.verb} {proxy.pathsuffix}","correlationId":"{request.header.x-correlation-id}"}}</Payload>
+            <StatusCode>404</StatusCode>
+            <ReasonPhrase>Not Found</ReasonPhrase>
+        </Set>
+    </FaultResponse>
+    <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+</RaiseFault>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- JSONThreatProtection responde 500 por defecto; para el cliente es un 400 (payload invalido) -->
+<AssignMessage continueOnError="false" enabled="true" name="AM-FaultInvalidPayload">
+    <DisplayName>AM-FaultInvalidPayload</DisplayName>
+    <Set>
+        <Headers>
+            <Header name="x-correlation-id">{request.header.x-correlation-id}</Header>
+        </Headers>
+        <Payload contentType="application/json">{"error":{"code":"invalid_payload","message":"{escapeJSON(error.message)}","correlationId":"{request.header.x-correlation-id}"}}</Payload>
+        <StatusCode>400</StatusCode>
+        <ReasonPhrase>Bad Request</ReasonPhrase>
+    </Set>
+    <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+</AssignMessage>

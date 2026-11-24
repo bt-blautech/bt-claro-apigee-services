@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- Errores de policies (401 apikey, 429 cuota/spike, 400 amenaza JSON) con formato consistente.
+     Conserva el status code que fijo la policy que fallo. -->
+<AssignMessage continueOnError="false" enabled="true" name="AM-FaultJSON">
+    <DisplayName>AM-FaultJSON</DisplayName>
+    <Set>
+        <Headers>
+            <Header name="x-correlation-id">{request.header.x-correlation-id}</Header>
+        </Headers>
+        <Payload contentType="application/json">{"error":{"code":"{fault.name}","message":"{escapeJSON(error.message)}","correlationId":"{request.header.x-correlation-id}"}}</Payload>
+    </Set>
+    <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+</AssignMessage>

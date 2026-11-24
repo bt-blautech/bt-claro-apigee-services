@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- No reenvia la apikey del consumidor; inyecta el secreto del backend (vault -> KVM -> private.*) -->
+<AssignMessage continueOnError="false" enabled="true" name="AM-SetBackendAuth">
+    <DisplayName>AM-SetBackendAuth</DisplayName>
+    <Remove>
+        <Headers>
+            <Header name="x-apikey"/>
+        </Headers>
+    </Remove>
+    <Set>
+        <Headers>
+            <Header name="x-api-secret">{private.api_secret}</Header>
+        </Headers>
+    </Set>
+    <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+</AssignMessage>

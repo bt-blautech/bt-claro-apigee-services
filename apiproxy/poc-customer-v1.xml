@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<APIProxy name="poc-customer-v1">
+    <DisplayName>poc-customer-v1</DisplayName>
+    <!-- build.sh estampa sha/version/run (trazabilidad Cap. 9); el codigo fuente conserva los marcadores -->
+    <Description>sha=@@GIT_SHA@@;version=@@VERSION@@;run=@@RUN_ID@@</Description>
+    <Policies>
+        <Policy>VA-VerifyAPIKey</Policy>
+        <Policy>SA-SpikeArrest</Policy>
+        <Policy>KVM-GetConfig</Policy>
+        <Policy>Q-Quota</Policy>
+        <Policy>RF-PayloadTooLarge</Policy>
+        <Policy>JTP-JSONThreatProtection</Policy>
+        <Policy>AM-CorrelationId</Policy>
+        <Policy>AM-SetBackendAuth</Policy>
+        <Policy>AM-ResponseHeaders</Policy>
+        <Policy>RF-NotFound</Policy>
+        <Policy>RF-BackendError</Policy>
+        <Policy>AM-FaultJSON</Policy>
+        <Policy>AM-FaultInvalidPayload</Policy>
+    </Policies>
+    <ProxyEndpoints>
+        <ProxyEndpoint>default</ProxyEndpoint>
+    </ProxyEndpoints>
+    <TargetEndpoints>
+        <TargetEndpoint>default</TargetEndpoint>
+    </TargetEndpoints>
+</APIProxy>

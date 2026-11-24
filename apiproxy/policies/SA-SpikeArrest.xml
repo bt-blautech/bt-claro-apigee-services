@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- Policy obligatoria 2 (quota/spike): 10 peticiones por segundo por app -->
+<SpikeArrest continueOnError="false" enabled="true" name="SA-SpikeArrest">
+    <DisplayName>SA-SpikeArrest</DisplayName>
+    <Rate>10ps</Rate>
+    <Identifier ref="client_id"/>
+    <UseEffectiveCount>true</UseEffectiveCount>
+</SpikeArrest>

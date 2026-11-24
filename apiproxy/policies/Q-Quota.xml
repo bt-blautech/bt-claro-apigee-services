@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- Policy obligatoria 2 (quota): limite por app y por minuto leido del KVM (100 DEV / 500 QA) -->
+<Quota continueOnError="false" enabled="true" name="Q-Quota" type="calendar">
+    <DisplayName>Q-Quota</DisplayName>
+    <Allow count="100" countRef="config.quota_limit"/>
+    <Interval>1</Interval>
+    <TimeUnit>minute</TimeUnit>
+    <StartTime>2026-01-01 00:00:00</StartTime>
+    <Identifier ref="client_id"/>
+    <Distributed>true</Distributed>
+    <Synchronous>true</Synchronous>
+</Quota>

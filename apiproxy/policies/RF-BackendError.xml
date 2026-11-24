@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- Policy obligatoria 5 (fault): errores 5xx del backend con el mismo formato JSON -->
+<RaiseFault continueOnError="false" enabled="true" name="RF-BackendError">
+    <DisplayName>RF-BackendError</DisplayName>
+    <FaultResponse>
+        <Set>
+            <Headers>
+                <Header name="x-correlation-id">{request.header.x-correlation-id}</Header>
+            </Headers>
+            <Payload contentType="application/json">{"error":{"code":"backend_error","message":"Error en el servicio de clientes","correlationId":"{request.header.x-correlation-id}"}}</Payload>
+            <StatusCode>500</StatusCode>
+            <ReasonPhrase>Internal Server Error</ReasonPhrase>
+        </Set>
+    </FaultResponse>
+    <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+</RaiseFault>

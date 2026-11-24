@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ProxyEndpoint name="default">
+    <Description>poc-customer-v1: gestion de clientes (Claro CENAM PoC)</Description>
+    <!-- Errores de policies (401, 429, 400, ...) con JSON consistente. Los RaiseFault ya traen su propio cuerpo. -->
+    <FaultRules>
+        <FaultRule name="json-threat">
+            <Condition>jsonattack.JTP-JSONThreatProtection.failed = true</Condition>
+            <Step>
+                <Name>AM-FaultInvalidPayload</Name>
+            </Step>
+        </FaultRule>
+    </FaultRules>
+    <DefaultFaultRule name="fault-json">
+        <Step>
+            <Name>AM-FaultJSON</Name>
+            <Condition>(fault.name != "RaiseFault") and (jsonattack.JTP-JSONThreatProtection.failed != true)</Condition>
+        </Step>
+        <AlwaysEnforce>true</AlwaysEnforce>
+    </DefaultFaultRule>
+    <PreFlow name="PreFlow">
+        <Request>
+            <Step>
+                <Name>AM-CorrelationId</Name>
+                <Condition>request.header.x-correlation-id = null</Condition>
+            </Step>
+            <Step>
+                <Name>VA-VerifyAPIKey</Name>
+            </Step>
+            <Step>
+                <Name>SA-SpikeArrest</Name>
+            </Step>
+            <Step>
+                <Name>KVM-GetConfig</Name>
+            </Step>
+            <Step>
+                <Name>Q-Quota</Name>
+            </Step>
+            <Step>
+                <Name>RF-PayloadTooLarge</Name>
+                <Condition>(request.verb = "POST") and (request.header.Content-Length > 2048)</Condition>
+            </Step>
+            <Step>
+                <Name>JTP-JSONThreatProtection</Name>
+                <Condition>(request.verb = "POST") and (request.content != null)</Condition>
+            </Step>
+        </Request>
+        <Response/>
+    </PreFlow>
+    <Flows>
+        <Flow name="list-customers">
+            <Description>GET /customers (paginado: page, size)</Description>
+            <Request/>
+            <Response/>
+            <Condition>(proxy.pathsuffix MatchesPath "/customers") and (request.verb = "GET")</Condition>
+        </Flow>
+        <Flow name="get-customer">
+            <Description>GET /customers/{id}</Description>
+            <Request/>
+            <Response/>
+            <Condition>(proxy.pathsuffix MatchesPath "/customers/*") and (request.verb = "GET")</Condition>
+        </Flow>
+        <Flow name="create-customer">
+            <Description>POST /customers (payload JSON validado, max 2 KB)</Description>
+            <Request/>
+            <Response/>
+            <Condition>(proxy.pathsuffix MatchesPath "/customers") and (request.verb = "POST")</Condition>
+        </Flow>
+        <Flow name="not-found">
+            <Description>Cualquier otra ruta u operacion</Description>
+            <Request>
+                <Step>
+                    <Name>RF-NotFound</Name>
+                </Step>
+            </Request>
+            <Response/>
+        </Flow>
+    </Flows>
+    <PostFlow name="PostFlow">
+        <Request/>
+        <Response>
+            <Step>
+                <Name>AM-ResponseHeaders</Name>
+            </Step>
+        </Response>
+    </PostFlow>
+    <HTTPProxyConnection>
+        <BasePath>/v1/poc-customer</BasePath>
+    </HTTPProxyConnection>
+    <RouteRule name="default">
+        <TargetEndpoint>default</TargetEndpoint>
+    </RouteRule>
+</ProxyEndpoint>

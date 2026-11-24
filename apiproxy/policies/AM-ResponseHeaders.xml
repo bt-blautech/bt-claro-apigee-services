@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- Trazabilidad: correlation id, revision activa (rollback), ambiente, commit y version -->
+<AssignMessage continueOnError="false" enabled="true" name="AM-ResponseHeaders">
+    <DisplayName>AM-ResponseHeaders</DisplayName>
+    <Remove>
+        <Headers>
+            <Header name="x-api-secret"/>
+        </Headers>
+    </Remove>
+    <Set>
+        <Headers>
+            <Header name="x-correlation-id">{request.header.x-correlation-id}</Header>
+            <Header name="X-Proxy-Revision">{apiproxy.revision}</Header>
+            <Header name="X-Environment">{environment.name}</Header>
+            <Header name="X-Env-Label">{config.env_label}</Header>
+            <Header name="X-Build-Commit">@@GIT_SHA@@</Header>
+            <Header name="X-Api-Version">@@VERSION@@</Header>
+        </Headers>
+    </Set>
+    <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+</AssignMessage>

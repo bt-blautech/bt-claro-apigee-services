@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Configuracion de ambiente - poc-customer-v1",
+  "type": "object",
+  "required": [
+    "environment",
+    "targetServer",
+    "kvm",
+    "app",
+    "smoke"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "environment": {
+      "type": "string",
+      "enum": [
+        "dev",
+        "qa"
+      ]
+    },
+    "targetServer": {
+      "description": "Target server de la API; el host lo publica la plataforma (bt-claro-apigee-infrastructure) en la variable indicada en hostFrom",
+      "type": "object",
+      "required": [
+        "name",
+        "hostFrom",
+        "port",
+        "tls"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$"
+        },
+        "hostFrom": {
+          "type": "string",
+          "pattern": "^[A-Z_]+$"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "tls": {
+          "type": "boolean"
+        },
+        "truststoreRef": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Referencia (ref-<truststore>) creada por la plataforma; si existe, el TLS se exige"
+        }
+      }
+    },
+    "kvm": {
+      "type": "object",
+      "required": [
+        "name",
+        "entries",
+        "vaultEntries"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "entries": {
+          "type": "object",
+          "required": [
+            "quota_limit",
+            "env_label"
+          ],
+          "additionalProperties": {
+            "type": "string"
+          },
+          "properties": {
+            "quota_limit": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          }
+        },
+        "vaultEntries": {
+          "description": "clave KVM -> nombre logico del secreto; el ID real es <APIGEE_NAME>-<env>-<nombre> en Secret Manager (nunca el valor)",
+          "type": "object",
+          "required": [
+            "api_secret"
+          ],
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+$"
+          }
+        }
+      }
+    },
+    "app": {
+      "type": "object",
+      "required": [
+        "name"
+      ]
+    },
+    "smoke": {
+      "type": "object",
+      "required": [
+        "path",
+        "maxLatencyMs"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^/"
+        },
+        "maxLatencyMs": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

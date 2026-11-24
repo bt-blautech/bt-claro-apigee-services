@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- Policy obligatoria 3 (threat): estructura del JSON de entrada -->
+<JSONThreatProtection continueOnError="false" enabled="true" name="JTP-JSONThreatProtection">
+    <DisplayName>JTP-JSONThreatProtection</DisplayName>
+    <ArrayElementCount>20</ArrayElementCount>
+    <ContainerDepth>5</ContainerDepth>
+    <ObjectEntryCount>15</ObjectEntryCount>
+    <ObjectEntryNameLength>50</ObjectEntryNameLength>
+    <StringValueLength>256</StringValueLength>
+    <Source>request</Source>
+</JSONThreatProtection>
