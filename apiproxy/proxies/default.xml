@@ -21,7 +21,7 @@
         <Request>
             <Step>
                 <Name>AM-CorrelationId</Name>
-                <Condition>request.header.x-correlation-id = null</Condition>
+                <Condition>request.header.x-correlation-id = null or request.header.x-correlation-id = "" or request.header.x-correlation-id not Matches "^[A-Za-z0-9._:-]{1,128}$"</Condition>
             </Step>
             <Step>
                 <Name>VA-VerifyAPIKey</Name>
@@ -37,7 +37,11 @@
             </Step>
             <Step>
                 <Name>RF-PayloadTooLarge</Name>
-                <Condition>(request.verb = "POST") and (request.header.Content-Length > 2048)</Condition>
+                <Condition>(request.verb = "POST") and ((request.header.Content-Length > 2048) or (request.content.length > 2048))</Condition>
+            </Step>
+            <Step>
+                <Name>RF-UnsupportedMediaType</Name>
+                <Condition>(request.verb = "POST") and (request.header.Content-Type not Matches "^application/json.*$")</Condition>
             </Step>
             <Step>
                 <Name>JTP-JSONThreatProtection</Name>

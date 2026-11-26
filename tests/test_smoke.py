@@ -114,6 +114,14 @@ def test_payload_mayor_2kb_413():
     assert r.json()["error"]["code"] == "payload_too_large"
 
 
+def test_content_type_no_json_415():
+    r = call("POST", BASE + "/customers",
+             headers={"x-apikey": KEY, "Content-Type": "text/plain"},
+             data='{"nombre":"Cliente POC","documento":"12345678"}')
+    assert r.status_code == 415, r.text[:300]
+    assert r.json()["error"]["code"] == "unsupported_media_type"
+
+
 def test_json_malicioso_rechazado():
     deep = {"a": {"b": {"c": {"d": {"e": {"f": {"g": 1}}}}}}}
     r = call("POST", BASE + "/customers", headers={"x-apikey": KEY}, json=deep)

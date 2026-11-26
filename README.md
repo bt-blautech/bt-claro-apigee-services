@@ -40,10 +40,10 @@ PROJECT_ID=cs-poc-6k18qfubvs1hrrde4cc8tfs APIGEE_NAME=claro-poc scripts/export_e
 | C1 ★ | Control de versiones | Git (`main`, `develop`, `feature/*`), `.gitignore`, tags `vX.Y.Z`, Conventional Commits |
 | C2 | Validación automática | `.github/workflows/ci-validate.yml` → `scripts/validate.sh`, `scripts/check_bundle.py`, `scripts/check_config.py`, apigeelint |
 | C3 ★ | Despliegue DEV | `cd-pipeline.yml` job `deploy-dev` → `scripts/deploy.sh`, auth con `secrets.GCP_SA_KEY` |
-| C4 | Invocación | `tests/test_smoke.py` (200, payload, `x-correlation-id`, < 500 ms, 401/404/413) |
+| C4 | Invocación | `tests/test_smoke.py` (200, payload, `x-correlation-id`, < 500 ms, 401/404/413/415) |
 | C5 ★ | Promoción DEV → QA | `.github/workflows/promote-qa.yml` (manual con el ID del run de DEV): gate = aprobador en `QA_APPROVERS` + confirmación `PROMOVER-QA` + run de DEV en *success*; descarga el **mismo** bundle de ese run, `sha256sum -c`, misma revisión de Apigee (sin reimportar) |
 | C6 | Parametrización | `config/dev/env.json` vs `config/qa/env.json` + `BACKEND_HOST`/`APIGEE_HOST` por environment; target server con el truststore del ambiente (TLS exigido); backends, truststores y certificados en bt-claro-apigee-infrastructure |
-| C7 | Proxy, policies, KVM, TS, product | `apiproxy/` (13 policies), `scripts/apply_config.sh` (target server, KVM), `scripts/apply_products.sh` (`poc-product`, apps) |
+| C7 | Proxy, policies, KVM, TS, product | `apiproxy/` (14 policies), `scripts/apply_config.sh` (target server, KVM), `scripts/apply_products.sh` (`poc-product`, apps) |
 | C8 ★ | Secretos | GitHub Secrets, Secret Manager (vault), KVM cifrado, `private.*`, `::add-mask::`, gitleaks |
 | C9 | Trazabilidad | Description `sha=;version=;run=`, `scripts/trace.sh` (comentario en commit + summary), headers `X-Proxy-Revision`/`X-Build-Commit` |
 | C10 ★ | Rollback | `.github/workflows/rollback.yml` → `scripts/rollback.sh` + pytest con `EXPECTED_REVISION` |

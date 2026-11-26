@@ -12,5 +12,5 @@
             <Header name="x-api-secret">{private.api_secret}</Header>
         </Headers>
     </Set>
-    <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+    <IgnoreUnresolvedVariables>false</IgnoreUnresolvedVariables>
 </AssignMessage>
