@@ -2,7 +2,7 @@
 # Capacidades 6, 7 y 8: configuracion de RUNTIME de la API por ambiente (antes del despliegue del proxy).
 #  - Target server poc-customer-backend: host = variable BACKEND_HOST (publicada por bt-claro-apigee-infrastructure),
 #    TLS exigido con el truststore del ambiente si existe su referencia (ref-ts-backend-<env>)
-#  - KVM poc-customer-config: quota_limit, env_label, backend_url y api_secret (desde el vault)
+#  - KVM poc-customer-config: quota_limit, env_label y api_secret (desde el vault)
 # El API product, el developer y la app van en scripts/apply_products.sh (despues de importar el proxy).
 # Uso: apply_config.sh <env>
 set -euo pipefail
@@ -31,7 +31,6 @@ else
   api POST "/environments/${ENV}/targetservers" "$TS_BODY" >/dev/null; accion=creado
 fi
 log "target server ${TS} ${accion}: ${TS_HOST}:$(r .targetServer.port) tls=$(r .targetServer.tls) enforce=${ENFORCE} truststore=${REF:-ninguno}"
-BACKEND_URL="https://${TS_HOST}/poc-customers/v0"
 
 # --- KVM ---------------------------------------------------------------------------
 KVM=$(r .kvm.name)
@@ -49,7 +48,6 @@ upsert_entry() {  # nunca imprime el valor
   log "KVM ${KVM}/${key} actualizado"
 }
 for key in $(r '.kvm.entries | keys[]'); do upsert_entry "$key" "$(r ".kvm.entries[\"$key\"]")"; done
-upsert_entry backend_url "$BACKEND_URL"
 for key in $(r '.kvm.vaultEntries | keys[]'); do
   secret="${NAME}-${ENV}-$(r ".kvm.vaultEntries[\"$key\"]")"   # ej. poc-dev-api-secret
   val=$(gcloud secrets versions access latest --secret="$secret" --project="$PROJECT")

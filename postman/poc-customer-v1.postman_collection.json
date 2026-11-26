@@ -1,0 +1,630 @@
+{
+  "info": {
+    "_postman_id": "c1a7e4b2-5f3d-4a91-9e08-2b6d7f1c4a55",
+    "name": "poc-customer-v1",
+    "description": "Colección de poc-customer-v1.\n\nAutenticación: cabecera x-apikey con la variable {{apiKey}}.\nVariables de colección: page, size, customerId, maxLatencyMs.\n\nImportar un entorno DEV o QA, completar host y apiKey, y ejecutar la colección.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      {
+        "key": "key",
+        "value": "x-apikey",
+        "type": "string"
+      },
+      {
+        "key": "value",
+        "value": "{{apiKey}}",
+        "type": "string"
+      },
+      {
+        "key": "in",
+        "value": "header",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "page",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "size",
+      "value": "2",
+      "type": "string"
+    },
+    {
+      "key": "customerId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "maxLatencyMs",
+      "value": "500",
+      "type": "string"
+    },
+    {
+      "key": "revision",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Operaciones",
+      "description": "Endpoints funcionales sobre /v1/poc-customer.",
+      "item": [
+        {
+          "name": "Listar clientes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('Content-Type JSON', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('items, page, size y total', () => {",
+                  "  pm.expect(body.items).to.be.an('array');",
+                  "  pm.expect(body.page).to.eql(Number(pm.collectionVariables.get('page')));",
+                  "  pm.expect(body.size).to.eql(Number(pm.collectionVariables.get('size')));",
+                  "  pm.expect(body.total).to.be.at.least(1);",
+                  "  pm.expect(body.items.length).to.be.at.most(Number(pm.collectionVariables.get('size')));",
+                  "});",
+                  "",
+                  "pm.test('x-correlation-id', () => {",
+                  "  const cid = pm.response.headers.get('x-correlation-id') || '';",
+                  "  pm.expect(cid.length).to.be.at.least(32);",
+                  "});",
+                  "",
+                  "pm.test('ambiente', () => {",
+                  "  pm.expect(body.environment).to.eql(pm.environment.get('expectedEnv'));",
+                  "  pm.expect(pm.response.headers.get('X-Environment')).to.eql(pm.environment.get('expectedEnv'));",
+                  "  pm.expect(pm.response.headers.get('X-Env-Label')).to.eql(pm.environment.get('expectedEnvLabel'));",
+                  "});",
+                  "",
+                  "pm.test('trazabilidad', () => {",
+                  "  pm.expect(pm.response.headers.get('X-Proxy-Revision')).to.match(/^\\d+$/);",
+                  "  pm.expect(pm.response.headers.get('X-Build-Commit')).to.not.be.empty;",
+                  "  pm.expect(pm.response.headers.get('X-Api-Version')).to.not.be.empty;",
+                  "});",
+                  "",
+                  "pm.test(`latencia < ${pm.collectionVariables.get('maxLatencyMs')} ms`, () => {",
+                  "  pm.expect(pm.response.responseTime).to.be.below(Number(pm.collectionVariables.get('maxLatencyMs')));",
+                  "});",
+                  "",
+                  "pm.test('sin secretos', () => {",
+                  "  const headers = Object.keys(pm.response.headers.toObject()).map(h => h.toLowerCase());",
+                  "  pm.expect(headers).to.not.include('x-api-secret');",
+                  "  pm.expect(headers).to.not.include('x-apikey');",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set('revision', pm.response.headers.get('X-Proxy-Revision') || '');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://{{host}}{{basePath}}/customers?page={{page}}&size={{size}}",
+              "protocol": "https",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "{{basePath}}",
+                "customers"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "{{page}}"
+                },
+                {
+                  "key": "size",
+                  "value": "{{size}}"
+                }
+              ]
+            },
+            "description": "GET /customers?page={{page}}&size={{size}}\n\nValida 200, payload paginado, x-correlation-id, ambiente, headers de trazabilidad, latencia y que no se expongan secretos."
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener cliente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('id solicitado', () => {",
+                  "  pm.expect(String(body.id)).to.eql(pm.collectionVariables.get('customerId'));",
+                  "});",
+                  "pm.test('x-correlation-id', () => {",
+                  "  pm.expect(pm.response.headers.get('x-correlation-id') || '').to.have.length.of.at.least(32);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://{{host}}{{basePath}}/customers/{{customerId}}",
+              "protocol": "https",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "{{basePath}}",
+                "customers",
+                "{{customerId}}"
+              ]
+            },
+            "description": "GET /customers/{{customerId}}\n\nValida 200 y que el id devuelto coincida con el solicitado."
+          },
+          "response": []
+        },
+        {
+          "name": "Crear cliente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "const sent = JSON.parse(pm.request.body.raw);",
+                  "pm.test('documento', () => {",
+                  "  pm.expect(body.documento).to.eql(sent.documento);",
+                  "});",
+                  "if (body.id !== undefined) {",
+                  "  pm.collectionVariables.set('newCustomerId', String(body.id));",
+                  "}",
+                  "pm.test('x-correlation-id', () => {",
+                  "  pm.expect(pm.response.headers.get('x-correlation-id') || '').to.have.length.of.at.least(32);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Cliente POC\",\n  \"documento\": \"12345678\",\n  \"segmento\": \"CENAM\",\n  \"correo\": \"poc@cenam.claro.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://{{host}}{{basePath}}/customers",
+              "protocol": "https",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "{{basePath}}",
+                "customers"
+              ]
+            },
+            "description": "POST /customers\n\nEnvía un cliente de prueba y valida 201 y que se conserve el documento."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Errores",
+      "description": "Casos negativos de las policies: 401, 413, 400, 404 y 415.",
+      "item": [
+        {
+          "name": "Sin api key (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401', () => pm.response.to.have.status(401));",
+                  "const body = pm.response.json();",
+                  "pm.test('error.correlationId', () => {",
+                  "  pm.expect(body).to.have.property('error');",
+                  "  pm.expect(body.error.correlationId).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://{{host}}{{basePath}}/customers",
+              "protocol": "https",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "{{basePath}}",
+                "customers"
+              ]
+            },
+            "description": "GET /customers sin cabecera x-apikey.\n\nEspera 401 con error.correlationId."
+          },
+          "response": []
+        },
+        {
+          "name": "Payload mayor a 2 KB (413)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('bigPayload', JSON.stringify({",
+                  "  nombre: 'x'.repeat(300),",
+                  "  documento: '12345678',",
+                  "  segmento: 'CENAM',",
+                  "  correo: 'poc@cenam.claro.com',",
+                  "  extra: 'y'.repeat(2200)",
+                  "}));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('413', () => pm.response.to.have.status(413));",
+                  "const body = pm.response.json();",
+                  "pm.test('payload_too_large', () => {",
+                  "  pm.expect(body.error.code).to.eql('payload_too_large');",
+                  "});",
+                  "pm.test('correlationId', () => {",
+                  "  pm.expect(body.error.correlationId).to.not.be.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{bigPayload}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://{{host}}{{basePath}}/customers",
+              "protocol": "https",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "{{basePath}}",
+                "customers"
+              ]
+            },
+            "description": "POST /customers con un body generado en el pre-request script (> 2 KB).\n\nEspera 413 con error.code payload_too_large."
+          },
+          "response": []
+        },
+        {
+          "name": "JSON profundo (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400', () => pm.response.to.have.status(400));",
+                  "const body = pm.response.json();",
+                  "pm.test('invalid_payload', () => {",
+                  "  pm.expect(body.error.code).to.eql('invalid_payload');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"a\":{\"b\":{\"c\":{\"d\":{\"e\":{\"f\":{\"g\":1}}}}}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://{{host}}{{basePath}}/customers",
+              "protocol": "https",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "{{basePath}}",
+                "customers"
+              ]
+            },
+            "description": "POST /customers con un JSON de profundidad excesiva.\n\nEspera 400 con error.code invalid_payload."
+          },
+          "response": []
+        },
+        {
+          "name": "Ruta inexistente (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404', () => pm.response.to.have.status(404));",
+                  "const body = pm.response.json();",
+                  "pm.test('not_found', () => {",
+                  "  pm.expect(body.error.code).to.eql('not_found');",
+                  "});",
+                  "pm.test('correlationId', () => {",
+                  "  pm.expect(body.error.correlationId).to.not.be.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://{{host}}{{basePath}}/no-existe",
+              "protocol": "https",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "{{basePath}}",
+                "no-existe"
+              ]
+            },
+            "description": "GET /customers/no-existe.\n\nEspera 404 con error.code not_found."
+          },
+          "response": []
+        },
+        {
+          "name": "Content-Type no JSON (415)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('415', () => pm.response.to.have.status(415));",
+                  "const body = pm.response.json();",
+                  "pm.test('unsupported_media_type', () => {",
+                  "  pm.expect(body.error.code).to.eql('unsupported_media_type');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre\":\"Cliente POC\",\"documento\":\"12345678\"}"
+            },
+            "url": {
+              "raw": "https://{{host}}{{basePath}}/customers",
+              "protocol": "https",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "{{basePath}}",
+                "customers"
+              ]
+            },
+            "description": "POST /customers con Content-Type text/plain.\n\nEspera 415 con error.code unsupported_media_type."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Trazabilidad",
+      "description": "Headers de correlación, revisión y commit.",
+      "item": [
+        {
+          "name": "Correlation id del cliente",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set('clientCorrelationId', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('x-correlation-id', () => {",
+                  "  pm.expect(pm.response.headers.get('x-correlation-id')).to.eql(pm.variables.get('clientCorrelationId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "x-correlation-id",
+                "value": "{{clientCorrelationId}}"
+              }
+            ],
+            "url": {
+              "raw": "https://{{host}}{{basePath}}/customers/{{customerId}}",
+              "protocol": "https",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "{{basePath}}",
+                "customers",
+                "{{customerId}}"
+              ]
+            },
+            "description": "GET /customers/{{customerId}} con un x-correlation-id generado en el pre-request script.\n\nValida que el proxy devuelva el mismo valor."
+          },
+          "response": []
+        },
+        {
+          "name": "Guardar revisión",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const revision = pm.response.headers.get('X-Proxy-Revision');",
+                  "const commit = pm.response.headers.get('X-Build-Commit');",
+                  "pm.test('revisión y commit', () => {",
+                  "  pm.expect(revision).to.match(/^\\d+$/);",
+                  "  pm.expect(commit).to.not.be.empty;",
+                  "});",
+                  "pm.collectionVariables.set('revision', revision);",
+                  "pm.collectionVariables.set('buildCommit', commit);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://{{host}}{{basePath}}/customers?page=1&size=1",
+              "protocol": "https",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "{{basePath}}",
+                "customers"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "GET /customers?page=1&size=1\n\nGuarda X-Proxy-Revision y X-Build-Commit en variables de colección."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
