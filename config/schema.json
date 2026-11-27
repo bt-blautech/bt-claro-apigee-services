@@ -15,7 +15,9 @@
       "type": "string",
       "enum": [
         "dev",
-        "qa"
+        "qa",
+        "staging",
+        "prod"
       ]
     },
     "targetServer": {
@@ -50,6 +52,7 @@
             "string",
             "null"
           ],
+          "pattern": "^ref-[a-z0-9-]+$",
           "description": "Referencia (ref-<truststore>) creada por la plataforma; si existe, el TLS se exige"
         }
       }
@@ -61,9 +64,11 @@
         "entries",
         "vaultEntries"
       ],
+      "additionalProperties": false,
       "properties": {
         "name": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$"
         },
         "entries": {
           "type": "object",
@@ -78,6 +83,10 @@
             "quota_limit": {
               "type": "string",
               "pattern": "^[0-9]+$"
+            },
+            "env_label": {
+              "type": "string",
+              "pattern": "^[A-Z]+$"
             }
           }
         },
@@ -98,21 +107,35 @@
       "type": "object",
       "required": [
         "name"
-      ]
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$"
+        }
+      }
     },
     "smoke": {
       "type": "object",
       "required": [
         "path",
-        "maxLatencyMs"
+        "maxLatencyMs",
+        "expectedQuota"
       ],
+      "additionalProperties": false,
       "properties": {
         "path": {
           "type": "string",
           "pattern": "^/"
         },
         "maxLatencyMs": {
-          "type": "integer"
+          "type": "integer",
+          "minimum": 1
+        },
+        "expectedQuota": {
+          "type": "integer",
+          "minimum": 1
         }
       }
     }

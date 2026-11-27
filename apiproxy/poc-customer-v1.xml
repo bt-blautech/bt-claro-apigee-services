@@ -4,19 +4,21 @@
     <!-- build.sh estampa sha/version/run (trazabilidad Cap. 9); el codigo fuente conserva los marcadores -->
     <Description>sha=@@GIT_SHA@@;version=@@VERSION@@;run=@@RUN_ID@@</Description>
     <Policies>
+        <Policy>AM-CorrelationId</Policy>
         <Policy>VA-VerifyAPIKey</Policy>
         <Policy>SA-SpikeArrest</Policy>
         <Policy>KVM-GetConfig</Policy>
         <Policy>Q-Quota</Policy>
         <Policy>RF-PayloadTooLarge</Policy>
+        <Policy>RF-UnsupportedMediaType</Policy>
         <Policy>JTP-JSONThreatProtection</Policy>
-        <Policy>AM-CorrelationId</Policy>
         <Policy>AM-SetBackendAuth</Policy>
         <Policy>AM-ResponseHeaders</Policy>
+        <Policy>JS-AddCorrelationId</Policy>
         <Policy>RF-NotFound</Policy>
         <Policy>RF-BackendError</Policy>
-        <Policy>AM-FaultJSON</Policy>
         <Policy>AM-FaultInvalidPayload</Policy>
+        <Policy>AM-FaultJSON</Policy>
     </Policies>
     <ProxyEndpoints>
         <ProxyEndpoint>default</ProxyEndpoint>

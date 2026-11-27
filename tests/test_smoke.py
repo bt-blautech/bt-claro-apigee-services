@@ -6,6 +6,7 @@ Variables de entorno:
   APP_API_KEY        consumer key de la app del ambiente (enmascarada en logs)
   EXPECTED_REVISION  (opcional) revision que debe responder (rollback)
   EXPECTED_SHA       (opcional) commit que debe responder (por defecto GITHUB_SHA)
+  SMOKE_PATH         (opcional) base path a probar (preview de PR: /preview/v1/poc-customer)
 """
 import json
 import os
@@ -20,7 +21,8 @@ ENV = os.environ["APIGEE_ENV"]
 HOST = os.environ["APIGEE_HOST"]
 KEY = os.environ["APP_API_KEY"]
 CFG = json.loads(Path(__file__).parents[1].joinpath("config", ENV, "env.json").read_text())
-BASE = f"https://{HOST}{CFG['smoke']['path']}"
+# SMOKE_PATH: base path alterno (preview de PR en /preview/...); por defecto el del ambiente
+BASE = f"https://{HOST}{os.environ.get('SMOKE_PATH') or CFG['smoke']['path']}"
 MAX_MS = CFG["smoke"]["maxLatencyMs"]
 # Sesion HTTP con keep-alive: mide la latencia del API (Apigee + backend) y no el saludo TCP/TLS
 # de cada conexion nueva, que depende de la distancia entre quien ejecuta la prueba y Google.
@@ -47,7 +49,13 @@ def call(method, url, **kw):
 def listado():
     for _ in range(3):  # calentamiento: KVM (cache 60 s), cuota y conexion keep-alive
         call("GET", BASE + "/customers", headers={"x-apikey": KEY})
-    return call("GET", BASE + "/customers?page=1&size=2", headers={"x-apikey": KEY})
+    r = call("GET", BASE + "/customers?page=1&size=2", headers={"x-apikey": KEY})
+    # Evidencia C4 para el reporte: latencia medida, revision y correlation-id de la llamada evaluada
+    out = Path("evidence"); out.mkdir(exist_ok=True)
+    out.joinpath(f"latency-{ENV}.json").write_text(json.dumps({
+        "env": ENV, "url": r.url, "status": r.status_code, "latency_ms": round(r.elapsed.total_seconds() * 1000),
+        "max_ms": MAX_MS, "revision": r.headers.get("X-Proxy-Revision"), "correlation_id": r.headers.get("x-correlation-id")}))
+    return r
 
 
 # ---------- Paso 4 / C4: GET /customers con apikey valida -----------------------------
@@ -64,6 +72,15 @@ def test_listado_payload_paginado(listado):
 def test_listado_correlation_id(listado):
     cid = listado.headers.get("x-correlation-id", "")
     assert len(cid) >= 32, "falta x-correlation-id (uuid)"
+
+
+def test_listado_correlation_id_en_body(listado):
+    cid = listado.headers.get("x-correlation-id", "")
+    body_cid = listado.json().get("correlationId")
+    assert body_cid == cid, (
+        f"el body 2xx debe incluir el mismo correlationId "
+        f"(body={body_cid!r}, header={cid!r}, rev={listado.headers.get('X-Proxy-Revision')!r})"
+    )
 
 
 def test_listado_latencia_menor_500ms(listado):
@@ -86,18 +103,21 @@ def test_no_expone_secretos(listado):
 def test_get_por_id():
     r = call("GET", BASE + "/customers/1", headers={"x-apikey": KEY})
     assert r.status_code == 200 and r.json()["id"] == "1"
+    assert r.json().get("correlationId") == r.headers.get("x-correlation-id")
 
 
 def test_post_crea_cliente():
     r = call("POST", BASE + "/customers", headers={"x-apikey": KEY}, json=PAYLOAD)
     assert r.status_code == 201, r.text[:300]
     assert r.json()["documento"] == PAYLOAD["documento"]
+    assert r.json().get("correlationId") == r.headers.get("x-correlation-id")
 
 
 def test_correlation_id_del_cliente_se_conserva():
     cid = str(uuid.uuid4())
     r = call("GET", BASE + "/customers/1", headers={"x-apikey": KEY, "x-correlation-id": cid})
     assert r.headers.get("x-correlation-id") == cid
+    assert r.json().get("correlationId") == cid
 
 
 # ---------- Seguridad y manejo de errores (policies obligatorias) ----------------------
@@ -112,6 +132,14 @@ def test_payload_mayor_2kb_413():
     r = call("POST", BASE + "/customers", headers={"x-apikey": KEY}, json=big)
     assert r.status_code == 413
     assert r.json()["error"]["code"] == "payload_too_large"
+
+
+def test_content_type_no_json_415():
+    r = call("POST", BASE + "/customers",
+             headers={"x-apikey": KEY, "Content-Type": "text/plain"},
+             data='{"nombre":"Cliente POC","documento":"12345678"}')
+    assert r.status_code == 415, r.text[:300]
+    assert r.json()["error"]["code"] == "unsupported_media_type"
 
 
 def test_json_malicioso_rechazado():

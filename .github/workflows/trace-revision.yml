@@ -1,0 +1,61 @@
+name: trace-revision
+
+# C9 trazabilidad INVERSA: revision de Apigee -> commit -> run -> deployments.
+# Lee la Description de la revision (sha=...;version=...;run=...) que estampa build.sh.
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: "Revision de Apigee (ej. 5). Vacio = la desplegada en el ambiente"
+        required: false
+      environment:
+        description: "Ambiente (org principal)"
+        type: choice
+        options: [dev, qa]
+
+permissions:
+  contents: read
+  actions: read
+  deployments: read
+
+env:
+  PROXY_NAME: poc-customer-v1
+  APIGEE_ORG: ${{ vars.APIGEE_ORG }}
+
+jobs:
+  trace:
+    name: "C9 Trazabilidad inversa"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-apigee
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - name: Revision -> commit -> run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REV_IN: ${{ inputs.revision }}
+          ENV_IN: ${{ inputs.environment }}
+        run: |
+          source scripts/lib/apigee.sh
+          REV=${REV_IN:-$(deployed_revision "$PROXY_NAME" "$ENV_IN")}
+          [[ -n "$REV" ]] || { echo "::error::no hay revision desplegada en ${ENV_IN}"; exit 1; }
+          DESC=$(api GET "/apis/${PROXY_NAME}/revisions/${REV}" | jq -r '.description // ""')
+          SHA=$(sed -n 's/.*sha=\([^;]*\).*/\1/p' <<<"$DESC")
+          VER=$(sed -n 's/.*version=\([^;]*\).*/\1/p' <<<"$DESC")
+          RUN=$(sed -n 's/.*run=\([^;]*\).*/\1/p' <<<"$DESC")
+          DEPLOYED_IN=$(for e in dev qa; do [[ "$(deployed_revision "$PROXY_NAME" "$e")" == "$REV" ]] && printf '%s ' "$e"; done; true)
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${RUN}"
+          RUN_INFO=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN}" --jq '"\(.name) · \(.head_branch) · \(.conclusion)"' 2>/dev/null || echo "run no disponible")
+          COMMIT_MSG=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}" --jq '.commit.message | split("\n")[0]' 2>/dev/null || echo "commit no encontrado en GitHub")
+          DEPLOYS=$(gh api "repos/${GITHUB_REPOSITORY}/deployments?sha=${SHA}" --jq '[.[] | "\(.environment) (\(.created_at[0:16]))"] | join(", ")' 2>/dev/null || true)
+          {
+            echo "### Revision r${REV} de \`${PROXY_NAME}\` → GitHub"
+            echo "| Campo | Valor |"; echo "|---|---|"
+            echo "| Description en Apigee | \`${DESC}\` |"
+            echo "| Desplegada hoy en | ${DEPLOYED_IN:-ninguno} |"
+            echo "| Version | ${VER} |"
+            echo "| Commit | [\`${SHA}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${SHA}) · ${COMMIT_MSG} |"
+            echo "| Run que la construyo | [${RUN}](${RUN_URL}) · ${RUN_INFO} |"
+            echo "| Deployments de GitHub | ${DEPLOYS:-ninguno} |"
+          } | tee -a "$GITHUB_STEP_SUMMARY"

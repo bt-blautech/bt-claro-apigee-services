@@ -9,11 +9,6 @@
             <Parameter>quota_limit</Parameter>
         </Key>
     </Get>
-    <Get assignTo="config.backend_url">
-        <Key>
-            <Parameter>backend_url</Parameter>
-        </Key>
-    </Get>
     <Get assignTo="config.env_label">
         <Key>
             <Parameter>env_label</Parameter>

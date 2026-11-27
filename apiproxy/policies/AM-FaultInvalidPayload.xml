@@ -5,6 +5,10 @@
     <Set>
         <Headers>
             <Header name="x-correlation-id">{request.header.x-correlation-id}</Header>
+            <Header name="X-Proxy-Revision">{apiproxy.revision}</Header>
+            <Header name="X-Environment">{environment.name}</Header>
+            <Header name="X-Build-Commit">@@GIT_SHA@@</Header>
+            <Header name="X-Api-Version">@@VERSION@@</Header>
         </Headers>
         <Payload contentType="application/json">{"error":{"code":"invalid_payload","message":"{escapeJSON(error.message)}","correlationId":"{request.header.x-correlation-id}"}}</Payload>
         <StatusCode>400</StatusCode>

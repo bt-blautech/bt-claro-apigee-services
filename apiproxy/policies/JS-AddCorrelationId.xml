@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- Trazabilidad: correlationId en el body de las respuestas 2xx (el header ya lo agrega AM-ResponseHeaders).
+     continueOnError: un fallo del script no debe romper una respuesta exitosa. -->
+<Javascript continueOnError="true" enabled="true" name="JS-AddCorrelationId">
+    <DisplayName>JS-AddCorrelationId</DisplayName>
+    <ResourceURL>jsc://addCorrelationId.js</ResourceURL>
+</Javascript>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- Rechaza POST con Content-Type distinto de application/json para que JSONThreatProtection
+     no pueda ser evitado enviando el cuerpo como text/plain. -->
+<RaiseFault continueOnError="false" enabled="true" name="RF-UnsupportedMediaType">
+    <DisplayName>RF-UnsupportedMediaType</DisplayName>
+    <FaultResponse>
+        <Set>
+            <Headers>
+                <Header name="x-correlation-id">{request.header.x-correlation-id}</Header>
+                <Header name="X-Proxy-Revision">{apiproxy.revision}</Header>
+                <Header name="X-Environment">{environment.name}</Header>
+                <Header name="X-Build-Commit">@@GIT_SHA@@</Header>
+                <Header name="X-Api-Version">@@VERSION@@</Header>
+            </Headers>
+            <Payload contentType="application/json">{"error":{"code":"unsupported_media_type","message":"El cuerpo debe enviarse como application/json","correlationId":"{request.header.x-correlation-id}"}}</Payload>
+            <StatusCode>415</StatusCode>
+            <ReasonPhrase>Unsupported Media Type</ReasonPhrase>
+        </Set>
+    </FaultResponse>
+    <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+</RaiseFault>
