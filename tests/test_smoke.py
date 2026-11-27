@@ -6,6 +6,7 @@ Variables de entorno:
   APP_API_KEY        consumer key de la app del ambiente (enmascarada en logs)
   EXPECTED_REVISION  (opcional) revision que debe responder (rollback)
   EXPECTED_SHA       (opcional) commit que debe responder (por defecto GITHUB_SHA)
+  SMOKE_PATH         (opcional) base path a probar (preview de PR: /preview/v1/poc-customer)
 """
 import json
 import os
@@ -20,7 +21,8 @@ ENV = os.environ["APIGEE_ENV"]
 HOST = os.environ["APIGEE_HOST"]
 KEY = os.environ["APP_API_KEY"]
 CFG = json.loads(Path(__file__).parents[1].joinpath("config", ENV, "env.json").read_text())
-BASE = f"https://{HOST}{CFG['smoke']['path']}"
+# SMOKE_PATH: base path alterno (preview de PR en /preview/...); por defecto el del ambiente
+BASE = f"https://{HOST}{os.environ.get('SMOKE_PATH') or CFG['smoke']['path']}"
 MAX_MS = CFG["smoke"]["maxLatencyMs"]
 # Sesion HTTP con keep-alive: mide la latencia del API (Apigee + backend) y no el saludo TCP/TLS
 # de cada conexion nueva, que depende de la distancia entre quien ejecuta la prueba y Google.
@@ -47,7 +49,13 @@ def call(method, url, **kw):
 def listado():
     for _ in range(3):  # calentamiento: KVM (cache 60 s), cuota y conexion keep-alive
         call("GET", BASE + "/customers", headers={"x-apikey": KEY})
-    return call("GET", BASE + "/customers?page=1&size=2", headers={"x-apikey": KEY})
+    r = call("GET", BASE + "/customers?page=1&size=2", headers={"x-apikey": KEY})
+    # Evidencia C4 para el reporte: latencia medida, revision y correlation-id de la llamada evaluada
+    out = Path("evidence"); out.mkdir(exist_ok=True)
+    out.joinpath(f"latency-{ENV}.json").write_text(json.dumps({
+        "env": ENV, "url": r.url, "status": r.status_code, "latency_ms": round(r.elapsed.total_seconds() * 1000),
+        "max_ms": MAX_MS, "revision": r.headers.get("X-Proxy-Revision"), "correlation_id": r.headers.get("x-correlation-id")}))
+    return r
 
 
 # ---------- Paso 4 / C4: GET /customers con apikey valida -----------------------------

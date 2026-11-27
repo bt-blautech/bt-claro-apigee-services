@@ -1,9 +1,8 @@
 name: ci-validate
 
 # Paso 2 del caso de uso: validacion automatica en cada push/PR. Falla el pipeline ante cualquier error.
+# En PR la ejecuta pr-checks.yml (validacion + preview con pruebas); aqui solo push y llamada reutilizable.
 on:
-  pull_request:
-    branches: [develop, main]
   push:
     branches: [develop, "feature/**"]
   workflow_call:

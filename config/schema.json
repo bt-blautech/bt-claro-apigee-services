@@ -15,7 +15,9 @@
       "type": "string",
       "enum": [
         "dev",
-        "qa"
+        "qa",
+        "staging",
+        "prod"
       ]
     },
     "targetServer": {

@@ -15,6 +15,7 @@ concurrency:
 permissions:
   contents: write      # comentario de trazabilidad en el commit (C9)
   deployments: write
+  actions: read        # tiempos por job en el reporte de evidencias (C11)
 
 env:
   PROXY_NAME: poc-customer-v1
@@ -34,6 +35,15 @@ jobs:
       bundle_sha256: ${{ steps.info.outputs.bundle_sha256 }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: "C1 Guardia de release: el tag debe estar en main y coincidir con VERSION"
+        if: github.ref_type == 'tag'
+        run: |
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main \
+            || { echo "::error::El tag ${GITHUB_REF_NAME} no apunta a un commit de main"; exit 1; }
+          [[ "v$(cat VERSION)" == "$GITHUB_REF_NAME" ]] \
+            || { echo "::error::El tag ${GITHUB_REF_NAME} no coincide con VERSION=$(cat VERSION)"; exit 1; }
       - run: scripts/build.sh
       - id: info
         run: echo "bundle_sha256=$(jq -r .bundle_sha256 dist/build-info.json)" >> "$GITHUB_OUTPUT"

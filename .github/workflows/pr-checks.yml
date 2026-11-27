@@ -1,0 +1,70 @@
+name: pr-checks
+
+# Gate de PR hacia develop y main (check requerido en el ruleset):
+#   1. validate: la misma validacion de C2 (gitleaks, xmllint, schema, bundle, apigeelint)
+#   2. preview:  despliega el bundle del PR en DEV como un proxy APARTE (poc-customer-v1-preview,
+#                base path /preview/v1/poc-customer) y corre las MISMAS pruebas pytest.
+# No toca poc-customer-v1, sus revisiones, ni los deployments de GitHub (no usa el environment dev).
+# Usa el target server y el KVM de DEV ya existentes (no aplica cambios de config/ del PR).
+on:
+  pull_request:
+    branches: [develop, main]
+
+permissions:
+  contents: read
+
+env:
+  PROXY_NAME: poc-customer-v1-preview
+  BASEPATH_PREFIX: /preview
+  APIGEE_ORG: ${{ vars.APIGEE_ORG }}
+  PROJECT_ID: ${{ vars.APIGEE_ORG }}
+  APIGEE_NAME: ${{ vars.APIGEE_NAME }}
+
+jobs:
+  validate:
+    uses: ./.github/workflows/ci-validate.yml
+
+  preview:
+    name: "PR Preview DEV + pruebas"
+    needs: validate
+    # Los PR desde forks no reciben secretos: solo ramas del mismo repo
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pr-preview-dev        # un solo preview a la vez (mismo proxy y base path)
+      cancel-in-progress: false
+    env:
+      APIGEE_ENV: dev
+      APIGEE_HOST: ${{ vars.PREVIEW_APIGEE_HOST }}
+      SMOKE_PATH: /preview/v1/poc-customer
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build del bundle del PR (nombre y base path de preview)
+        run: scripts/build.sh
+      - uses: ./.github/actions/setup-apigee
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - name: Desplegar preview en DEV
+        id: deploy
+        run: scripts/deploy.sh dev
+      - name: Product y app del preview
+        env:
+          PRODUCT_FILE: config/preview/product.json
+          APP_NAME: poc-app-preview
+        run: scripts/apply_products.sh dev
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install -r tests/requirements.txt
+      - name: "C4 Pruebas contra el preview (las mismas de DEV)"
+        run: pytest tests/ -v --junitxml=evidence/pytest-preview.xml
+      - name: Replegar el preview
+        if: always() && steps.deploy.outputs.revision != ''
+        run: |
+          apigeecli apis undeploy --name "$PROXY_NAME" --env dev --rev "${{ steps.deploy.outputs.revision }}" \
+            --org "$APIGEE_ORG" --token "$APIGEE_TOKEN" >/dev/null && echo "preview r${{ steps.deploy.outputs.revision }} replegado" || true
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: evidence-pr-${{ github.event.pull_request.number }}-${{ github.run_id }}
+          path: evidence/
