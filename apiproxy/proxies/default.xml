@@ -85,9 +85,10 @@
             <Step>
                 <Name>AM-ResponseHeaders</Name>
             </Step>
+            <!-- JS-AddCorrelationId: status y Content-Type se validan dentro del script (addCorrelationId.js) -->
             <Step>
                 <Name>JS-AddCorrelationId</Name>
-                <Condition>(response.status.code ~~ "2[0-9][0-9]") and (response.content != null) and (response.header.Content-Type ~~ "^application/json.*$")</Condition>
+                <Condition>(response.status.code &gt;= 200) and (response.status.code &lt; 300)</Condition>
             </Step>
         </Response>
     </PostFlow>
