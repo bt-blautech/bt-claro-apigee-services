@@ -21,7 +21,7 @@
         <Request>
             <Step>
                 <Name>AM-CorrelationId</Name>
-                <Condition>request.header.x-correlation-id = null or request.header.x-correlation-id = "" or request.header.x-correlation-id not Matches "^[A-Za-z0-9._:-]{1,128}$"</Condition>
+                <Condition>request.header.x-correlation-id = null or request.header.x-correlation-id = "" or !(request.header.x-correlation-id ~~ "^[A-Za-z0-9._:-]{1,128}$")</Condition>
             </Step>
             <Step>
                 <Name>VA-VerifyAPIKey</Name>
@@ -41,7 +41,7 @@
             </Step>
             <Step>
                 <Name>RF-UnsupportedMediaType</Name>
-                <Condition>(request.verb = "POST") and (request.header.Content-Type not Matches "^application/json.*$")</Condition>
+                <Condition>(request.verb = "POST") and !(request.header.Content-Type ~~ "^application/json.*$")</Condition>
             </Step>
             <Step>
                 <Name>JTP-JSONThreatProtection</Name>
@@ -87,7 +87,7 @@
             </Step>
             <Step>
                 <Name>JS-AddCorrelationId</Name>
-                <Condition>(response.status.code &lt; 300) and (response.content != null) and (response.header.Content-Type Matches "^application/json.*$")</Condition>
+                <Condition>(response.status.code ~~ "2[0-9][0-9]") and (response.content != null) and (response.header.Content-Type ~~ "^application/json.*$")</Condition>
             </Step>
         </Response>
     </PostFlow>
