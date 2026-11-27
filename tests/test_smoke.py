@@ -68,7 +68,11 @@ def test_listado_correlation_id(listado):
 
 def test_listado_correlation_id_en_body(listado):
     cid = listado.headers.get("x-correlation-id", "")
-    assert listado.json().get("correlationId") == cid, "el body 2xx debe incluir el mismo correlationId"
+    body_cid = listado.json().get("correlationId")
+    assert body_cid == cid, (
+        f"el body 2xx debe incluir el mismo correlationId "
+        f"(body={body_cid!r}, header={cid!r}, rev={listado.headers.get('X-Proxy-Revision')!r})"
+    )
 
 
 def test_listado_latencia_menor_500ms(listado):
