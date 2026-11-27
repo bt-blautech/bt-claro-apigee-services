@@ -66,6 +66,11 @@ def test_listado_correlation_id(listado):
     assert len(cid) >= 32, "falta x-correlation-id (uuid)"
 
 
+def test_listado_correlation_id_en_body(listado):
+    cid = listado.headers.get("x-correlation-id", "")
+    assert listado.json().get("correlationId") == cid, "el body 2xx debe incluir el mismo correlationId"
+
+
 def test_listado_latencia_menor_500ms(listado):
     assert listado.elapsed.total_seconds() * 1000 < MAX_MS
 
@@ -86,18 +91,21 @@ def test_no_expone_secretos(listado):
 def test_get_por_id():
     r = call("GET", BASE + "/customers/1", headers={"x-apikey": KEY})
     assert r.status_code == 200 and r.json()["id"] == "1"
+    assert r.json().get("correlationId") == r.headers.get("x-correlation-id")
 
 
 def test_post_crea_cliente():
     r = call("POST", BASE + "/customers", headers={"x-apikey": KEY}, json=PAYLOAD)
     assert r.status_code == 201, r.text[:300]
     assert r.json()["documento"] == PAYLOAD["documento"]
+    assert r.json().get("correlationId") == r.headers.get("x-correlation-id")
 
 
 def test_correlation_id_del_cliente_se_conserva():
     cid = str(uuid.uuid4())
     r = call("GET", BASE + "/customers/1", headers={"x-apikey": KEY, "x-correlation-id": cid})
     assert r.headers.get("x-correlation-id") == cid
+    assert r.json().get("correlationId") == cid
 
 
 # ---------- Seguridad y manejo de errores (policies obligatorias) ----------------------

@@ -14,6 +14,7 @@
         <Policy>JTP-JSONThreatProtection</Policy>
         <Policy>AM-SetBackendAuth</Policy>
         <Policy>AM-ResponseHeaders</Policy>
+        <Policy>JS-AddCorrelationId</Policy>
         <Policy>RF-NotFound</Policy>
         <Policy>RF-BackendError</Policy>
         <Policy>AM-FaultInvalidPayload</Policy>
