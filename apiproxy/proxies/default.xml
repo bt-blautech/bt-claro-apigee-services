@@ -85,6 +85,10 @@
             <Step>
                 <Name>AM-ResponseHeaders</Name>
             </Step>
+            <Step>
+                <Name>JS-AddCorrelationId</Name>
+                <Condition>(response.status.code &lt; 300) and (response.content != null) and (response.header.Content-Type Matches "^application/json.*$")</Condition>
+            </Step>
         </Response>
     </PostFlow>
     <HTTPProxyConnection>

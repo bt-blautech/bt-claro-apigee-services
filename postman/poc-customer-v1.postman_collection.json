@@ -82,6 +82,10 @@
                   "  pm.expect(cid.length).to.be.at.least(32);",
                   "});",
                   "",
+                  "pm.test('body.correlationId', () => {",
+                  "  pm.expect(body.correlationId).to.eql(pm.response.headers.get('x-correlation-id'));",
+                  "});",
+                  "",
                   "pm.test('ambiente', () => {",
                   "  pm.expect(body.environment).to.eql(pm.environment.get('expectedEnv'));",
                   "  pm.expect(pm.response.headers.get('X-Environment')).to.eql(pm.environment.get('expectedEnv'));",
@@ -157,6 +161,9 @@
                   "});",
                   "pm.test('x-correlation-id', () => {",
                   "  pm.expect(pm.response.headers.get('x-correlation-id') || '').to.have.length.of.at.least(32);",
+                  "});",
+                  "pm.test('body.correlationId', () => {",
+                  "  pm.expect(body.correlationId).to.eql(pm.response.headers.get('x-correlation-id'));",
                   "});"
                 ]
               }
@@ -205,6 +212,9 @@
                   "}",
                   "pm.test('x-correlation-id', () => {",
                   "  pm.expect(pm.response.headers.get('x-correlation-id') || '').to.have.length.of.at.least(32);",
+                  "});",
+                  "pm.test('body.correlationId', () => {",
+                  "  pm.expect(body.correlationId).to.eql(pm.response.headers.get('x-correlation-id'));",
                   "});"
                 ]
               }
