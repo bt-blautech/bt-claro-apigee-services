@@ -1,0 +1,139 @@
+name: promote-release
+
+# Guinda: promueve el MISMO artefacto de un release (run de cd-pipeline sobre un tag vX.Y.Z) a
+# ambientes de OTRA org de Apigee en un proyecto aislado (staging -> prod).
+#  - El zip se descarga del run del release y se verifica su sha256: es el mismo artefacto de DEV/QA.
+#    En otra org la revision se numera distinto; la prueba de identidad es el sha256 (y sha= en Description).
+#  - Credenciales y org del ambiente: secret GCP_SA_KEY y variables APIGEE_ORG/APIGEE_HOST/BACKEND_HOST
+#    del environment de GitHub (las publica bt-claro-apigee-infrastructure: platform-apply + setup_github).
+#  - prod exige que staging ya tenga ese mismo commit, y tiene required reviewers en su environment.
+# promote-qa.yml (C5, misma org, misma revision) no cambia.
+on:
+  workflow_dispatch:
+    inputs:
+      release_run_id:
+        description: "ID del run de cd-pipeline del tag (release vX.Y.Z)"
+        required: true
+      environment:
+        description: "Ambiente destino"
+        type: choice
+        options: [staging, prod]
+      confirmacion:
+        description: "Escriba PROMOVER-STAGING o PROMOVER-PROD"
+        required: true
+
+permissions:
+  contents: write     # comentario de trazabilidad (C9)
+  actions: read       # leer el run del release y descargar su artefacto
+  deployments: write
+
+env:
+  PROXY_NAME: poc-customer-v1
+
+jobs:
+  gate:
+    name: "Gate de release"
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.run.outputs.sha }}
+      tag: ${{ steps.run.outputs.tag }}
+    steps:
+      - name: "1. Aprobador autorizado y confirmacion"
+        env:
+          APPROVERS: ${{ vars.RELEASE_APPROVERS || vars.QA_APPROVERS }}
+          TARGET: ${{ inputs.environment }}
+          CONFIRM: ${{ inputs.confirmacion }}
+        run: |
+          [[ ",${APPROVERS// /}," == *",${GITHUB_ACTOR},"* ]] || { echo "::error::${GITHUB_ACTOR} no esta autorizado"; exit 1; }
+          [[ "$CONFIRM" == "PROMOVER-${TARGET^^}" ]] || { echo "::error::confirmacion invalida (esperado PROMOVER-${TARGET^^})"; exit 1; }
+      - name: "2. El run es un release (tag vX.Y.Z) exitoso"
+        id: run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.release_run_id }}
+        run: |
+          R=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}")
+          echo "$R" | jq '{workflow: .name, ref: .head_branch, sha: .head_sha, conclusion, url: .html_url}'
+          [[ "$(jq -r .name <<<"$R")" == "cd-pipeline" ]] || { echo "::error::el run no es de cd-pipeline"; exit 1; }
+          [[ "$(jq -r .head_branch <<<"$R")" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::solo se promueven releases (tags vX.Y.Z)"; exit 1; }
+          [[ "$(jq -r .conclusion <<<"$R")" == "success" ]] || { echo "::error::el run del release no termino en success"; exit 1; }
+          echo "sha=$(jq -r .head_sha <<<"$R")" >> "$GITHUB_OUTPUT"
+          echo "tag=$(jq -r .head_branch <<<"$R")" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Gate de release aprobado → ${{ inputs.environment }}"
+            echo "| Solicitante | Release | Run | Commit |"; echo "|---|---|---|---|"
+            echo "| ${GITHUB_ACTOR} | $(jq -r .head_branch <<<"$R") | [${RUN_ID}]($(jq -r .html_url <<<"$R")) | \`$(jq -r .head_sha <<<"$R")\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  promote:
+    name: "Promocion a ${{ inputs.environment }} (mismo artefacto, org aislada)"
+    needs: gate
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
+      url: https://${{ vars.APIGEE_HOST }}/v1/poc-customer/customers
+    env:
+      APIGEE_ENV: ${{ inputs.environment }}
+      # A nivel job para tomar los valores del environment de GitHub (otra org / otro proyecto)
+      APIGEE_ORG: ${{ vars.APIGEE_ORG }}
+      PROJECT_ID: ${{ vars.APIGEE_ORG }}
+      APIGEE_NAME: ${{ vars.APIGEE_NAME }}
+      APIGEE_HOST: ${{ vars.APIGEE_HOST }}
+      BACKEND_HOST: ${{ vars.BACKEND_HOST }}
+      SHA: ${{ needs.gate.outputs.sha }}
+      COMMIT_SHA: ${{ needs.gate.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.gate.outputs.sha }}
+      - name: "Org y host destino (deben ser los del environment, no los de la org principal)"
+        run: |
+          echo "ambiente=${APIGEE_ENV} org=${APIGEE_ORG} host=${APIGEE_HOST}"
+          [[ -n "$APIGEE_ORG" && -n "$APIGEE_HOST" && -n "$BACKEND_HOST" ]] || { echo "::error::faltan variables del environment ${APIGEE_ENV}"; exit 1; }
+      - name: "Descargar el MISMO bundle del release"
+        uses: actions/download-artifact@v8
+        with:
+          name: bundle-${{ needs.gate.outputs.sha }}
+          path: dist/
+          run-id: ${{ inputs.release_run_id }}
+          github-token: ${{ github.token }}
+      - name: "Verificar sha256 y commit del artefacto"
+        run: |
+          jq . dist/build-info.json
+          [[ "$(jq -r .git_sha dist/build-info.json)" == "${SHA}" ]] || { echo "::error::el artefacto no es del commit ${SHA}"; exit 1; }
+          echo "$(jq -r .bundle_sha256 dist/build-info.json)  dist/${PROXY_NAME}.zip" | sha256sum -c -
+          echo "BUNDLE_SHA256=$(jq -r .bundle_sha256 dist/build-info.json)" >> "$GITHUB_ENV"
+      - uses: ./.github/actions/setup-apigee
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - name: "prod solo si staging ya tiene este mismo commit"
+        if: inputs.environment == 'prod'
+        run: |
+          source scripts/lib/apigee.sh
+          STG=$(deployed_revision "$PROXY_NAME" staging)
+          [[ -n "$STG" ]] || { echo "::error::staging no tiene ninguna revision desplegada"; exit 1; }
+          api GET "/apis/${PROXY_NAME}/revisions/${STG}" | jq -e --arg s "sha=${SHA};" '.description | contains($s)' >/dev/null \
+            || { echo "::error::staging (r${STG}) no tiene el commit ${SHA}: promueva primero a staging"; exit 1; }
+          echo "staging r${STG} = commit ${SHA}: OK"
+      - name: "Configuracion del ambiente (vault -> KVM cifrado)"
+        run: scripts/apply_config.sh "$APIGEE_ENV"
+      - name: "Desplegar (importa el zip verificado si la org aun no tiene ese commit)"
+        id: deploy
+        run: scripts/deploy.sh "$APIGEE_ENV"
+      - name: "API product + app del ambiente"
+        run: scripts/apply_products.sh "$APIGEE_ENV"
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install -r tests/requirements.txt
+      - name: "Pruebas en ${{ inputs.environment }}"
+        run: pytest tests/ -v --junitxml=evidence/pytest-${{ inputs.environment }}.xml
+      - name: "Trazabilidad"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/trace.sh "$APIGEE_ENV" "${{ steps.deploy.outputs.revision }}" "release ${{ needs.gate.outputs.tag }}"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: evidence-${{ inputs.environment }}-${{ github.run_id }}
+          path: evidence/

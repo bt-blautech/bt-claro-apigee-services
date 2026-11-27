@@ -10,6 +10,13 @@ RUN_ID=${GITHUB_RUN_ID:-local}
 
 rm -rf dist && mkdir -p dist/stage
 cp -R apiproxy dist/stage/apiproxy
+# Nombre del proxy y prefijo de base path (preview de PR: PROXY_NAME=...-preview BASEPATH_PREFIX=/preview).
+# En el build normal no cambia nada: mismo nombre, mismo base path, mismo sha256.
+sed -i.bak -e "s#<APIProxy name=\"[^\"]*\"#<APIProxy name=\"${PROXY}\"#" dist/stage/apiproxy/*.xml
+if [[ -n "${BASEPATH_PREFIX:-}" ]]; then
+  sed -i.bak -e "s#<BasePath>/#<BasePath>${BASEPATH_PREFIX}/#" dist/stage/apiproxy/proxies/*.xml
+fi
+find dist/stage -name '*.bak' -delete
 # Estampado de metadatos (solo en la copia de build, nunca en el codigo fuente)
 grep -rl '@@' dist/stage/apiproxy | while read -r f; do
   sed -i.bak -e "s/@@GIT_SHA@@/${SHA}/g" -e "s/@@VERSION@@/${VERSION}/g" -e "s/@@RUN_ID@@/${RUN_ID}/g" "$f" && rm -f "$f.bak"

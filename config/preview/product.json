@@ -1,0 +1,9 @@
+{
+  "name": "poc-product-preview",
+  "displayName": "PoC Customer API (preview de PR)",
+  "description": "Solo para pruebas de PR: expone el proxy poc-customer-v1-preview en DEV. No se usa en DEV/QA reales.",
+  "approvalType": "auto",
+  "environments": ["dev"],
+  "proxies": ["poc-customer-v1-preview"],
+  "attributes": [{ "name": "access", "value": "private" }]
+}

@@ -6,7 +6,7 @@ on:
       environment:
         description: Ambiente
         type: choice
-        options: [dev, qa]
+        options: [dev, qa, staging, prod]
         required: true
       revision:
         description: "Revision objetivo (vacio = N-1)"
@@ -28,6 +28,10 @@ jobs:
     environment: ${{ inputs.environment }}
     env:
       APIGEE_ENV: ${{ inputs.environment }}
+      # A nivel job: staging/prod viven en otra org y sobreescriben APIGEE_ORG en su environment de GitHub
+      APIGEE_ORG: ${{ vars.APIGEE_ORG }}
+      PROJECT_ID: ${{ vars.APIGEE_ORG }}
+      APIGEE_NAME: ${{ vars.APIGEE_NAME }}
       APIGEE_HOST: ${{ vars.APIGEE_HOST }}
       BACKEND_HOST: ${{ vars.BACKEND_HOST }}
     steps:
@@ -54,7 +58,7 @@ jobs:
         if: always()
         run: |
           {
-            echo "### Rollback ${PROXY_NAME} en ${APIGEE_ENV}"
+            echo "### Rollback ${PROXY_NAME} en ${APIGEE_ENV} (org \`${APIGEE_ORG}\`)"
             echo "| Desde | Hacia | Commit esperado | Run |"
             echo "|---|---|---|---|"
             echo "| r${{ steps.rb.outputs.from_revision }} | **r${{ steps.rb.outputs.to_revision }}** | \`${{ steps.rb.outputs.expected_sha }}\` | ${GITHUB_RUN_ID} |"
